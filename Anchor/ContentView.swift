@@ -52,7 +52,7 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 28)
-                .padding(.bottom, 32)
+                .padding(.bottom, 72)
             }
             .background(Color(red: 0.95, green: 0.94, blue: 0.91))
             .navigationBarTitleDisplayMode(.inline)
@@ -149,26 +149,41 @@ struct ContentView: View {
                     .buttonStyle(SecondaryAnchorButtonStyle())
             }
 
-            NavigationLink {
-                DoubtLogListView()
-            } label: {
-                Text("迷いログを見る")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-            }
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    NavigationLink {
+                        DoubtLogListView()
+                    } label: {
+                        Text("迷いログ")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
 
-            NavigationLink {
-                ShelfItemListView()
-            } label: {
-                Text("棚上げリストを見る")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    NavigationLink {
+                        ShelfItemListView()
+                    } label: {
+                        Text("棚上げ")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
+                }
+
+                NavigationLink {
+                    HistoryView()
+                } label: {
+                    Text("履歴を見る")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
             }
         }
         .padding(.top, 8)
@@ -344,6 +359,148 @@ private struct EmptyDoubtLogCard: View {
                 .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
 
             Text("迷ったときに記録すれば、あとで見返せます。")
+                .font(.body)
+                .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct HistoryView: View {
+    @Query(sort: \ActivitySession.startedAt, order: .reverse) private var activitySessions: [ActivitySession]
+    @Query(sort: \CheckIn.createdAt, order: .reverse) private var checkIns: [CheckIn]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("履歴")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                Text("積み上げとチェックインを、あとで見返せる場所")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+
+                if activitySessions.isEmpty && checkIns.isEmpty {
+                    EmptyHistoryCard()
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(activitySessions) { session in
+                            ActivitySessionHistoryRow(session: session)
+                        }
+
+                        ForEach(checkIns) { checkIn in
+                            CheckInHistoryRow(checkIn: checkIn)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 32)
+        }
+        .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct ActivitySessionHistoryRow: View {
+    let session: ActivitySession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("作業ログ")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+            Text(session.title)
+                .font(.headline)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(session.startedAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
+                .font(.caption)
+                .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+
+            Text("積み上げ: \(durationText(seconds: session.durationSeconds))")
+                .font(.body)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+            if let result = session.result {
+                Text("結果: \(result)")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+            }
+
+            if let actualActivity = session.actualActivity {
+                Text("実際: \(actualActivity)")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func durationText(seconds: Int) -> String {
+        let minutes = seconds / 60
+
+        if minutes < 60 {
+            return "\(minutes)分"
+        }
+
+        let hours = minutes / 60
+        let remainingMinutes = minutes % 60
+        return "\(hours)時間\(remainingMinutes)分"
+    }
+}
+
+private struct CheckInHistoryRow: View {
+    let checkIn: CheckIn
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("チェックイン")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+            Text(checkIn.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
+                .font(.caption)
+                .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+
+            Text("達成度 \(checkIn.achievementScore) / 納得度 \(checkIn.satisfactionScore) / 迷い \(checkIn.doubtScore)")
+                .font(.body)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+            if !checkIn.memo.isEmpty {
+                Text(checkIn.memo)
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct EmptyHistoryCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("まだ履歴はありません")
+                .font(.headline)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+            Text("作業やチェックインを記録すると、ここで見返せます。")
                 .font(.body)
                 .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
         }
