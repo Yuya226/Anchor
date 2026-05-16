@@ -17,6 +17,9 @@ final class ActivitySession {
     var durationSeconds: Int
     var result: String?
     var actualActivity: String?
+    var taskID: UUID?
+    var taskTitle: String?
+    var taskStyle: String?
 
     init(
         id: UUID = UUID(),
@@ -25,7 +28,10 @@ final class ActivitySession {
         endedAt: Date? = nil,
         durationSeconds: Int = 0,
         result: String? = nil,
-        actualActivity: String? = nil
+        actualActivity: String? = nil,
+        taskID: UUID? = nil,
+        taskTitle: String? = nil,
+        taskStyle: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -34,5 +40,8 @@ final class ActivitySession {
         self.durationSeconds = durationSeconds
         self.result = result
         self.actualActivity = actualActivity
+        self.taskID = taskID
+        self.taskTitle = taskTitle
+        self.taskStyle = taskStyle
     }
 }

@@ -197,7 +197,7 @@ private struct HomeView: View {
 
                     VStack(spacing: 14) {
                         AnchorCard(title: "今の重点テーマ", value: activeThemeTitle)
-                        AnchorCard(title: "次の一手", value: activeTaskTitle)
+                        AnchorCard(title: "次の一手", value: activeNextAction)
 
                         TimelineView(.periodic(from: .now, by: 1)) { timeline in
                             HStack(spacing: 14) {
@@ -272,6 +272,14 @@ private struct HomeView: View {
 
     private var activeTaskTitle: String {
         activeTask?.title ?? "ホーム画面を形にする"
+    }
+
+    private var activeNextAction: String {
+        guard let nextAction = activeTask?.nextAction, !nextAction.isEmpty else {
+            return activeTaskTitle
+        }
+
+        return nextAction
     }
 
     private var activeThemeTitle: String {
@@ -355,7 +363,12 @@ private struct HomeView: View {
     }
 
     private func startWorkSession() {
-        let session = ActivitySession(title: activeTaskTitle)
+        let session = ActivitySession(
+            title: activeTaskTitle,
+            taskID: activeTask?.id,
+            taskTitle: activeTask?.title,
+            taskStyle: activeTask?.taskStyle
+        )
         modelContext.insert(session)
     }
 
@@ -619,6 +632,13 @@ private struct ActivitySessionHistoryRow: View {
                 .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            if let taskStyle = session.taskStyle {
+                Text(taskStyle)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+            }
+
             Text(session.startedAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
                 .font(.caption)
                 .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
@@ -714,6 +734,7 @@ private struct TaskListView: View {
     @State private var isShowingAddSheet = false
     @State private var title = ""
     @State private var themeTitle = ""
+    @State private var nextAction = ""
     @State private var minimumAction = ""
     @State private var taskStyle = "Hybrid"
 
@@ -769,6 +790,7 @@ private struct TaskListView: View {
             TaskSheet(
                 title: $title,
                 themeTitle: $themeTitle,
+                nextAction: $nextAction,
                 minimumAction: $minimumAction,
                 taskStyle: $taskStyle,
                 onCancel: closeSheet,
@@ -785,6 +807,7 @@ private struct TaskListView: View {
     private func saveTask() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTheme = themeTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedNextAction = nextAction.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedMinimum = minimumAction.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedTitle.isEmpty else {
@@ -797,6 +820,7 @@ private struct TaskListView: View {
             isActive: shouldActivate,
             taskStyle: taskStyle,
             themeTitle: trimmedTheme.isEmpty ? nil : trimmedTheme,
+            nextAction: trimmedNextAction.isEmpty ? nil : trimmedNextAction,
             minimumAction: trimmedMinimum.isEmpty ? nil : trimmedMinimum
         )
 
@@ -808,6 +832,7 @@ private struct TaskListView: View {
     private func resetInput() {
         title = ""
         themeTitle = ""
+        nextAction = ""
         minimumAction = ""
         taskStyle = "Hybrid"
     }
@@ -860,6 +885,12 @@ private struct TaskRow: View {
                     .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
             }
 
+            if let nextAction = task.nextAction, !nextAction.isEmpty {
+                Text("次の一手: \(nextAction)")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+            }
+
             if let minimumAction = task.minimumAction, !minimumAction.isEmpty {
                 Text("Minimum: \(minimumAction)")
                     .font(.body)
@@ -898,6 +929,7 @@ private struct EmptyTaskCard: View {
 private struct TaskSheet: View {
     @Binding var title: String
     @Binding var themeTitle: String
+    @Binding var nextAction: String
     @Binding var minimumAction: String
     @Binding var taskStyle: String
 
@@ -923,6 +955,7 @@ private struct TaskSheet: View {
 
                     LabeledTextField(title: "タスク", placeholder: "今本当にすべきこと", text: $title)
                     LabeledTextField(title: "重点テーマ", placeholder: "例: Anchor MVP", text: $themeTitle)
+                    LabeledTextField(title: "次の一手", placeholder: "例: ホーム画面を形にする", text: $nextAction)
                     LabeledTextField(title: "Minimum", placeholder: "例: 1分だけ開く", text: $minimumAction)
 
                     VStack(alignment: .leading, spacing: 10) {

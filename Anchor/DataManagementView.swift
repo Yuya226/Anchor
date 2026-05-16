@@ -186,6 +186,9 @@ private struct ActivitySessionExport: Codable {
     let durationSeconds: Int
     let result: String?
     let actualActivity: String?
+    let taskID: UUID?
+    let taskTitle: String?
+    let taskStyle: String?
 
     init(_ activitySession: ActivitySession) {
         id = activitySession.id
@@ -195,6 +198,9 @@ private struct ActivitySessionExport: Codable {
         durationSeconds = activitySession.durationSeconds
         result = activitySession.result
         actualActivity = activitySession.actualActivity
+        taskID = activitySession.taskID
+        taskTitle = activitySession.taskTitle
+        taskStyle = activitySession.taskStyle
     }
 }
 

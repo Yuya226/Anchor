@@ -20,6 +20,7 @@ final class AnchorTask {
     var priority: Int
     var taskStyle: String
     var themeTitle: String?
+    var nextAction: String?
     var minimumAction: String?
     var requiredDevice: String?
     var context: String?
@@ -36,6 +37,7 @@ final class AnchorTask {
         priority: Int = 0,
         taskStyle: String = "Hybrid",
         themeTitle: String? = nil,
+        nextAction: String? = nil,
         minimumAction: String? = nil,
         requiredDevice: String? = nil,
         context: String? = nil,
@@ -51,6 +53,7 @@ final class AnchorTask {
         self.priority = priority
         self.taskStyle = taskStyle
         self.themeTitle = themeTitle
+        self.nextAction = nextAction
         self.minimumAction = minimumAction
         self.requiredDevice = requiredDevice
         self.context = context
