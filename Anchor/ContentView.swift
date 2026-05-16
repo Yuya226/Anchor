@@ -152,6 +152,17 @@ struct ContentView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 12) {
                     NavigationLink {
+                        TaskListView()
+                    } label: {
+                        Text("タスク")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
+
+                    NavigationLink {
                         DoubtLogListView()
                     } label: {
                         Text("迷いログ")
@@ -162,6 +173,9 @@ struct ContentView: View {
                             .padding(.vertical, 10)
                     }
 
+                }
+
+                HStack(spacing: 12) {
                     NavigationLink {
                         ShelfItemListView()
                     } label: {
@@ -172,17 +186,17 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                     }
-                }
 
-                NavigationLink {
-                    HistoryView()
-                } label: {
-                    Text("履歴を見る")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                    NavigationLink {
+                        HistoryView()
+                    } label: {
+                        Text("履歴")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
                 }
             }
         }
@@ -508,6 +522,263 @@ private struct EmptyHistoryCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(red: 0.99, green: 0.98, blue: 0.95))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct TaskListView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \AnchorTask.createdAt, order: .reverse) private var tasks: [AnchorTask]
+
+    @State private var isShowingAddSheet = false
+    @State private var title = ""
+    @State private var themeTitle = ""
+    @State private var minimumAction = ""
+    @State private var taskStyle = "Hybrid"
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("タスク")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                        Text("今本当にすべきことを置いておく場所")
+                            .font(.body)
+                            .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+                    }
+
+                    Spacer()
+
+                    Button {
+                        isShowingAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color(red: 0.25, green: 0.38, blue: 0.35))
+                            .clipShape(Circle())
+                    }
+                    .accessibilityLabel("タスクを追加")
+                }
+
+                if tasks.isEmpty {
+                    EmptyTaskCard()
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(tasks) { task in
+                            TaskRow(task: task)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 32)
+        }
+        .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isShowingAddSheet) {
+            TaskSheet(
+                title: $title,
+                themeTitle: $themeTitle,
+                minimumAction: $minimumAction,
+                taskStyle: $taskStyle,
+                onCancel: closeSheet,
+                onSave: saveTask
+            )
+        }
+    }
+
+    private func closeSheet() {
+        resetInput()
+        isShowingAddSheet = false
+    }
+
+    private func saveTask() {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTheme = themeTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedMinimum = minimumAction.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedTitle.isEmpty else {
+            return
+        }
+
+        let task = AnchorTask(
+            title: trimmedTitle,
+            taskStyle: taskStyle,
+            themeTitle: trimmedTheme.isEmpty ? nil : trimmedTheme,
+            minimumAction: trimmedMinimum.isEmpty ? nil : trimmedMinimum
+        )
+
+        modelContext.insert(task)
+        resetInput()
+        isShowingAddSheet = false
+    }
+
+    private func resetInput() {
+        title = ""
+        themeTitle = ""
+        minimumAction = ""
+        taskStyle = "Hybrid"
+    }
+}
+
+private struct TaskRow: View {
+    let task: AnchorTask
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(task.title)
+                    .font(.headline)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                Spacer()
+
+                Text(task.taskStyle)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color(red: 0.90, green: 0.91, blue: 0.87))
+                    .clipShape(Capsule())
+            }
+
+            if let themeTitle = task.themeTitle, !themeTitle.isEmpty {
+                Text(themeTitle)
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+            }
+
+            if let minimumAction = task.minimumAction, !minimumAction.isEmpty {
+                Text("Minimum: \(minimumAction)")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+            }
+
+            Text(task.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
+                .font(.caption)
+                .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct EmptyTaskCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("まだタスクはありません")
+                .font(.headline)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+            Text("今本当にすべきことを追加すると、ホームのアンカーに近づきます。")
+                .font(.body)
+                .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct TaskSheet: View {
+    @Binding var title: String
+    @Binding var themeTitle: String
+    @Binding var minimumAction: String
+    @Binding var taskStyle: String
+
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    private let taskStyles = [
+        "Minimum",
+        "Daily",
+        "Momentum",
+        "Hybrid",
+        "Recovery"
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("タスクを追加")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                    LabeledTextField(title: "タスク", placeholder: "今本当にすべきこと", text: $title)
+                    LabeledTextField(title: "重点テーマ", placeholder: "例: Anchor MVP", text: $themeTitle)
+                    LabeledTextField(title: "Minimum", placeholder: "例: 1分だけ開く", text: $minimumAction)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("実行スタイル")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
+                            ForEach(taskStyles, id: \.self) { style in
+                                Button {
+                                    taskStyle = style
+                                } label: {
+                                    Text(style)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(taskStyle == style ? .white : Color(red: 0.25, green: 0.38, blue: 0.35))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(taskStyle == style ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.90, green: 0.91, blue: 0.87))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                }
+                            }
+                        }
+                    }
+
+                    VStack(spacing: 12) {
+                        Button("保存", action: onSave)
+                            .buttonStyle(PrimaryAnchorButtonStyle())
+                            .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button("キャンセル", action: onCancel)
+                            .buttonStyle(SecondaryAnchorButtonStyle())
+                    }
+                    .padding(.top, 8)
+                }
+                .padding(20)
+            }
+            .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        }
+    }
+}
+
+private struct LabeledTextField: View {
+    let title: String
+    let placeholder: String
+    @Binding var text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .padding(14)
+                .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
     }
 }
 
@@ -1022,5 +1293,5 @@ private struct SecondaryAnchorButtonStyle: ButtonStyle {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [DoubtLog.self, ShelfItem.self, ActivitySession.self, CheckIn.self], inMemory: true)
+        .modelContainer(for: [DoubtLog.self, ShelfItem.self, ActivitySession.self, CheckIn.self, AnchorTask.self], inMemory: true)
 }
