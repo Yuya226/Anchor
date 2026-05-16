@@ -15,6 +15,7 @@ struct AnchorApp: App {
             Item.self,
             DoubtLog.self,
             ShelfItem.self,
+            ActivitySession.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
