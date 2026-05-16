@@ -6,39 +6,60 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \DoubtLog.createdAt, order: .reverse) private var doubtLogs: [DoubtLog]
+
+    @State private var isShowingDoubtSheet = false
+    @State private var doubtContent = ""
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                header
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
 
-                VStack(spacing: 14) {
-                    AnchorCard(title: "今の重点テーマ", value: "Anchor MVPを作る")
-                    AnchorCard(title: "次の一手", value: "ホーム画面を形にする")
+                    VStack(spacing: 14) {
+                        AnchorCard(title: "今の重点テーマ", value: "Anchor MVPを作る")
+                        AnchorCard(title: "次の一手", value: "ホーム画面を形にする")
 
-                    HStack(spacing: 14) {
-                        AnchorCard(title: "今日の積み上げ", value: "0分")
-                        AnchorCard(title: "今日の迷い", value: "0回")
+                        HStack(spacing: 14) {
+                            AnchorCard(title: "今日の積み上げ", value: "0分")
+                            AnchorCard(title: "今日の迷い", value: "\(todayDoubtCount)回")
+                        }
+
+                        ShelfCard(
+                            title: "棚上げ中",
+                            items: [
+                                "英語の本を読む",
+                                "論文を読む",
+                                "金融キャリアの深掘り"
+                            ]
+                        )
                     }
 
-                    ShelfCard(
-                        title: "棚上げ中",
-                        items: [
-                            "英語の本を読む",
-                            "論文を読む",
-                            "金融キャリアの深掘り"
-                        ]
-                    )
+                    actionButtons
                 }
-
-                actionButtons
+                .padding(.horizontal, 20)
+                .padding(.top, 28)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 28)
-            .padding(.bottom, 32)
+            .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+            .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $isShowingDoubtSheet) {
+                DoubtLogSheet(
+                    content: $doubtContent,
+                    onCancel: closeDoubtSheet,
+                    onSave: saveDoubtLog
+                )
+            }
         }
-        .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+    }
+
+    private var todayDoubtCount: Int {
+        doubtLogs.filter { Calendar.current.isDateInToday($0.createdAt) }.count
     }
 
     private var header: some View {
@@ -61,14 +82,157 @@ struct ContentView: View {
                 .buttonStyle(PrimaryAnchorButtonStyle())
 
             HStack(spacing: 12) {
-                Button("迷った") {}
+                Button("迷った") {
+                    isShowingDoubtSheet = true
+                }
                     .buttonStyle(SecondaryAnchorButtonStyle())
 
                 Button("チェックイン") {}
                     .buttonStyle(SecondaryAnchorButtonStyle())
             }
+
+            NavigationLink {
+                DoubtLogListView()
+            } label: {
+                Text("迷いログを見る")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
         }
         .padding(.top, 8)
+    }
+
+    private func closeDoubtSheet() {
+        doubtContent = ""
+        isShowingDoubtSheet = false
+    }
+
+    private func saveDoubtLog() {
+        let trimmedContent = doubtContent.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedContent.isEmpty else {
+            return
+        }
+
+        let doubtLog = DoubtLog(content: trimmedContent)
+        modelContext.insert(doubtLog)
+        doubtContent = ""
+        isShowingDoubtSheet = false
+    }
+}
+
+private struct DoubtLogListView: View {
+    @Query(sort: \DoubtLog.createdAt, order: .reverse) private var doubtLogs: [DoubtLog]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("迷いログ")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                Text("預けた迷いを、あとで見返せる場所")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+
+                if doubtLogs.isEmpty {
+                    EmptyDoubtLogCard()
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(doubtLogs) { doubtLog in
+                            DoubtLogRow(doubtLog: doubtLog)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 32)
+        }
+        .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct DoubtLogRow: View {
+    let doubtLog: DoubtLog
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(doubtLog.createdAt, format: Date.FormatStyle(date: .numeric, time: .shortened))
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+            Text(doubtLog.content)
+                .font(.body)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct EmptyDoubtLogCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("まだ迷いは預けられていません")
+                .font(.headline)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+            Text("迷ったときに記録すれば、あとで見返せます。")
+                .font(.body)
+                .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct DoubtLogSheet: View {
+    @Binding var content: String
+
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("迷いを預ける")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                TextEditor(text: $content)
+                    .frame(minHeight: 160)
+                    .padding(12)
+                    .scrollContentBackground(.hidden)
+                    .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    Button("保存", action: onSave)
+                        .buttonStyle(PrimaryAnchorButtonStyle())
+                        .disabled(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Button("キャンセル", action: onCancel)
+                        .buttonStyle(SecondaryAnchorButtonStyle())
+                }
+            }
+            .padding(20)
+            .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        }
     }
 }
 
@@ -148,4 +312,5 @@ private struct SecondaryAnchorButtonStyle: ButtonStyle {
 
 #Preview {
     ContentView()
+        .modelContainer(for: DoubtLog.self, inMemory: true)
 }
