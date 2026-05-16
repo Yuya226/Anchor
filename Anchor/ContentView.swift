@@ -455,6 +455,21 @@ private struct SessionFeedbackSheet: View {
         "何もしなかった"
     ]
 
+    private let alternativeActivityOptions = [
+        "YouTube",
+        "Netflix",
+        "アニメ",
+        "映画",
+        "筋トレ",
+        "散歩",
+        "睡眠",
+        "ポルノ",
+        "別の勉強",
+        "バイト",
+        "何もしない",
+        "その他"
+    ]
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 18) {
@@ -494,6 +509,32 @@ private struct SessionFeedbackSheet: View {
                                 .padding(14)
                                 .background(result == option ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.90, green: 0.91, blue: 0.87))
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                        }
+                    }
+                }
+
+                if result == "別のことをした" || result == "何もしなかった" {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("代替行動")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
+                            ForEach(alternativeActivityOptions, id: \.self) { option in
+                                Button {
+                                    actualActivity = option
+                                } label: {
+                                    Text(option)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(actualActivity == option ? .white : Color(red: 0.25, green: 0.38, blue: 0.35))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                        .background(actualActivity == option ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.90, green: 0.91, blue: 0.87))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                }
                             }
                         }
                     }
