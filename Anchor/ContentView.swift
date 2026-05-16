@@ -19,6 +19,11 @@ struct ContentView: View {
     @State private var feedbackSession: ActivitySession?
     @State private var sessionResult = "できた"
     @State private var actualActivity = ""
+    @State private var isShowingCheckInSheet = false
+    @State private var achievementScore = 3
+    @State private var satisfactionScore = 3
+    @State private var doubtScore = 3
+    @State private var checkInMemo = ""
 
     var body: some View {
         NavigationStack {
@@ -63,6 +68,16 @@ struct ContentView: View {
                     result: $sessionResult,
                     actualActivity: $actualActivity,
                     onSave: saveSessionFeedback
+                )
+            }
+            .sheet(isPresented: $isShowingCheckInSheet) {
+                CheckInSheet(
+                    achievementScore: $achievementScore,
+                    satisfactionScore: $satisfactionScore,
+                    doubtScore: $doubtScore,
+                    memo: $checkInMemo,
+                    onCancel: closeCheckInSheet,
+                    onSave: saveCheckIn
                 )
             }
         }
@@ -128,7 +143,9 @@ struct ContentView: View {
                 }
                     .buttonStyle(SecondaryAnchorButtonStyle())
 
-                Button("チェックイン") {}
+                Button("チェックイン") {
+                    isShowingCheckInSheet = true
+                }
                     .buttonStyle(SecondaryAnchorButtonStyle())
             }
 
@@ -207,6 +224,32 @@ struct ContentView: View {
         feedbackSession = nil
         sessionResult = "できた"
         actualActivity = ""
+    }
+
+    private func closeCheckInSheet() {
+        resetCheckInInput()
+        isShowingCheckInSheet = false
+    }
+
+    private func saveCheckIn() {
+        let memo = checkInMemo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let checkIn = CheckIn(
+            achievementScore: achievementScore,
+            satisfactionScore: satisfactionScore,
+            doubtScore: doubtScore,
+            memo: memo
+        )
+
+        modelContext.insert(checkIn)
+        resetCheckInInput()
+        isShowingCheckInSheet = false
+    }
+
+    private func resetCheckInInput() {
+        achievementScore = 3
+        satisfactionScore = 3
+        doubtScore = 3
+        checkInMemo = ""
     }
 
     private func workDurationText(now: Date) -> String {
@@ -564,6 +607,91 @@ private struct SessionFeedbackSheet: View {
     }
 }
 
+private struct CheckInSheet: View {
+    @Binding var achievementScore: Int
+    @Binding var satisfactionScore: Int
+    @Binding var doubtScore: Int
+    @Binding var memo: String
+
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("チェックイン")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                Text("今日の状態を軽く残します。")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+
+                ScorePicker(title: "達成度", score: $achievementScore)
+                ScorePicker(title: "納得度", score: $satisfactionScore)
+                ScorePicker(title: "迷いの強さ", score: $doubtScore)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("一言メモ")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+                    TextEditor(text: $memo)
+                        .frame(minHeight: 120)
+                        .padding(12)
+                        .scrollContentBackground(.hidden)
+                        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    Button("保存", action: onSave)
+                        .buttonStyle(PrimaryAnchorButtonStyle())
+
+                    Button("キャンセル", action: onCancel)
+                        .buttonStyle(SecondaryAnchorButtonStyle())
+                }
+            }
+            .padding(20)
+            .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        }
+    }
+}
+
+private struct ScorePicker: View {
+    let title: String
+    @Binding var score: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+            HStack(spacing: 8) {
+                ForEach(1...5, id: \.self) { value in
+                    Button {
+                        score = value
+                    } label: {
+                        Text("\(value)")
+                            .font(.headline)
+                            .foregroundStyle(score == value ? .white : Color(red: 0.25, green: 0.38, blue: 0.35))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(score == value ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.90, green: 0.91, blue: 0.87))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct ShelfItemSheet: View {
     @Binding var title: String
     @Binding var reason: String
@@ -737,5 +865,5 @@ private struct SecondaryAnchorButtonStyle: ButtonStyle {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [DoubtLog.self, ShelfItem.self, ActivitySession.self], inMemory: true)
+        .modelContainer(for: [DoubtLog.self, ShelfItem.self, ActivitySession.self, CheckIn.self], inMemory: true)
 }
