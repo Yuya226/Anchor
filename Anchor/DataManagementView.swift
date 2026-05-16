@@ -119,7 +119,7 @@ private struct DataSummaryCard: View {
             Text("迷いログ: \(doubtLogCount)件")
             Text("棚上げ: \(shelfItemCount)件")
             Text("作業ログ: \(activitySessionCount)件")
-            Text("チェックイン: \(checkInCount)件")
+            Text("日記: \(checkInCount)件")
         }
         .font(.body)
         .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
@@ -211,6 +211,8 @@ private struct CheckInExport: Codable {
     let doubtScore: Int
     let memo: String
     let createdAt: Date
+    let dayType: String
+    let stateTags: String
 
     init(_ checkIn: CheckIn) {
         id = checkIn.id
@@ -219,5 +221,7 @@ private struct CheckInExport: Codable {
         doubtScore = checkIn.doubtScore
         memo = checkIn.memo
         createdAt = checkIn.createdAt
+        dayType = checkIn.dayType
+        stateTags = checkIn.stateTags
     }
 }

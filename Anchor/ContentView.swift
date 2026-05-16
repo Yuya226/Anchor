@@ -177,6 +177,7 @@ private struct HomeView: View {
     @Query(sort: \ShelfItem.createdAt, order: .reverse) private var shelfItems: [ShelfItem]
     @Query(sort: \ActivitySession.startedAt, order: .reverse) private var activitySessions: [ActivitySession]
     @Query(sort: \AnchorTask.createdAt, order: .reverse) private var tasks: [AnchorTask]
+    @Query(sort: \CheckIn.createdAt, order: .reverse) private var checkIns: [CheckIn]
 
     @State private var isShowingDoubtSheet = false
     @State private var doubtContent = ""
@@ -188,6 +189,8 @@ private struct HomeView: View {
     @State private var satisfactionScore = 3
     @State private var doubtScore = 3
     @State private var checkInMemo = ""
+    @State private var checkInDayType = "Daily"
+    @State private var checkInTags: Set<String> = []
 
     var body: some View {
         NavigationStack {
@@ -196,8 +199,8 @@ private struct HomeView: View {
                     header
 
                     VStack(spacing: 14) {
-                        AnchorCard(title: "今の重点テーマ", value: activeThemeTitle)
-                        AnchorCard(title: "次の一手", value: activeNextAction)
+                        AnchorCard(title: "タスク", value: activeTaskTitle)
+                        AnchorCard(title: "今日の状態", value: homeStateText)
 
                         TimelineView(.periodic(from: .now, by: 1)) { timeline in
                             HStack(spacing: 14) {
@@ -240,6 +243,8 @@ private struct HomeView: View {
                     satisfactionScore: $satisfactionScore,
                     doubtScore: $doubtScore,
                     memo: $checkInMemo,
+                    dayType: $checkInDayType,
+                    selectedTags: $checkInTags,
                     onCancel: closeCheckInSheet,
                     onSave: saveCheckIn
                 )
@@ -274,16 +279,18 @@ private struct HomeView: View {
         activeTask?.title ?? "ホーム画面を形にする"
     }
 
-    private var activeNextAction: String {
-        guard let nextAction = activeTask?.nextAction, !nextAction.isEmpty else {
-            return activeTaskTitle
-        }
-
-        return nextAction
+    private var latestTodayCheckIn: CheckIn? {
+        checkIns.first { Calendar.current.isDateInToday($0.createdAt) }
     }
 
-    private var activeThemeTitle: String {
-        activeTask?.themeTitle ?? "Anchor MVPを作る"
+    private var homeStateText: String {
+        let taskStyle = activeTask?.taskStyle ?? "Hybrid"
+
+        if let latestTodayCheckIn {
+            return "\(taskStyle) / \(latestTodayCheckIn.dayType)"
+        }
+
+        return "\(taskStyle) / 未日記"
     }
 
     private var homeShelfItemTitles: [String] {
@@ -404,7 +411,9 @@ private struct HomeView: View {
             achievementScore: achievementScore,
             satisfactionScore: satisfactionScore,
             doubtScore: doubtScore,
-            memo: memo
+            memo: memo,
+            dayType: checkInDayType,
+            stateTags: checkInTags.sorted().joined(separator: ",")
         )
 
         modelContext.insert(checkIn)
@@ -417,6 +426,8 @@ private struct HomeView: View {
         satisfactionScore = 3
         doubtScore = 3
         checkInMemo = ""
+        checkInDayType = "Daily"
+        checkInTags = []
     }
 
     private func workDurationText(now: Date) -> String {
@@ -457,7 +468,7 @@ private struct LogTabView: View {
                         .fontWeight(.bold)
                         .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
 
-                    Text("迷いとチェックインを見返す場所")
+                    Text("迷いと日記を見返す場所")
                         .font(.body)
                         .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
 
@@ -683,7 +694,7 @@ private struct CheckInHistoryRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("チェックイン")
+            Text("日記")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
@@ -695,6 +706,16 @@ private struct CheckInHistoryRow: View {
             Text("達成度 \(checkIn.achievementScore) / 納得度 \(checkIn.satisfactionScore) / 迷い \(checkIn.doubtScore)")
                 .font(.body)
                 .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+            Text("タイプ: \(checkIn.dayType)")
+                .font(.body)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+            if !checkIn.stateTags.isEmpty {
+                Text("状態: \(checkIn.stateTags)")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+            }
 
             if !checkIn.memo.isEmpty {
                 Text(checkIn.memo)
@@ -1278,52 +1299,146 @@ private struct CheckInSheet: View {
     @Binding var satisfactionScore: Int
     @Binding var doubtScore: Int
     @Binding var memo: String
+    @Binding var dayType: String
+    @Binding var selectedTags: Set<String>
 
     let onCancel: () -> Void
     let onSave: () -> Void
 
+    private let dayTypes = [
+        "Minimum",
+        "Daily",
+        "Momentum",
+        "Hybrid",
+        "Recovery"
+    ]
+
+    private let stateTags = [
+        "迷っていた",
+        "疲れていた",
+        "なんとなく流れた",
+        "気分転換したかった",
+        "思ったより進んだ",
+        "集中できた",
+        "モメンタムが来た",
+        "回復日だった"
+    ]
+
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("日記")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("日記")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
 
-                Text("今日の状態を軽く残します。")
-                    .font(.body)
-                    .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+                    Text("今日の状態を軽く残します。")
+                        .font(.body)
+                        .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
 
-                ScorePicker(title: "達成度", score: $achievementScore)
-                ScorePicker(title: "納得度", score: $satisfactionScore)
-                ScorePicker(title: "迷いの強さ", score: $doubtScore)
+                    SingleChoicePicker(title: "今日のタイプ", options: dayTypes, selection: $dayType)
+                    MultiChoicePicker(title: "状態タグ", options: stateTags, selection: $selectedTags)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("一言メモ")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+                    ScorePicker(title: "達成度", score: $achievementScore)
+                    ScorePicker(title: "納得度", score: $satisfactionScore)
+                    ScorePicker(title: "迷いの強さ", score: $doubtScore)
 
-                    TextEditor(text: $memo)
-                        .frame(minHeight: 120)
-                        .padding(12)
-                        .scrollContentBackground(.hidden)
-                        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("一言メモ")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+                        TextEditor(text: $memo)
+                            .frame(minHeight: 120)
+                            .padding(12)
+                            .scrollContentBackground(.hidden)
+                            .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+
+                    VStack(spacing: 12) {
+                        Button("保存", action: onSave)
+                            .buttonStyle(PrimaryAnchorButtonStyle())
+
+                        Button("キャンセル", action: onCancel)
+                            .buttonStyle(SecondaryAnchorButtonStyle())
+                    }
                 }
+                .padding(20)
+            }
+            .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        }
+    }
+}
 
-                Spacer()
+private struct SingleChoicePicker: View {
+    let title: String
+    let options: [String]
+    @Binding var selection: String
 
-                VStack(spacing: 12) {
-                    Button("保存", action: onSave)
-                        .buttonStyle(PrimaryAnchorButtonStyle())
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
 
-                    Button("キャンセル", action: onCancel)
-                        .buttonStyle(SecondaryAnchorButtonStyle())
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
+                ForEach(options, id: \.self) { option in
+                    Button {
+                        selection = option
+                    } label: {
+                        Text(option)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(selection == option ? .white : Color(red: 0.25, green: 0.38, blue: 0.35))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(selection == option ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.90, green: 0.91, blue: 0.87))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
                 }
             }
-            .padding(20)
-            .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        }
+    }
+}
+
+private struct MultiChoicePicker: View {
+    let title: String
+    let options: [String]
+    @Binding var selection: Set<String>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 128), spacing: 8)], spacing: 8) {
+                ForEach(options, id: \.self) { option in
+                    let isSelected = selection.contains(option)
+
+                    Button {
+                        if isSelected {
+                            selection.remove(option)
+                        } else {
+                            selection.insert(option)
+                        }
+                    } label: {
+                        Text(option)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(isSelected ? .white : Color(red: 0.25, green: 0.38, blue: 0.35))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(isSelected ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.90, green: 0.91, blue: 0.87))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+            }
         }
     }
 }

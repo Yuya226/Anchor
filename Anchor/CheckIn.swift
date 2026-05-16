@@ -16,6 +16,8 @@ final class CheckIn {
     var doubtScore: Int
     var memo: String
     var createdAt: Date
+    var dayType: String
+    var stateTags: String
 
     init(
         id: UUID = UUID(),
@@ -23,7 +25,9 @@ final class CheckIn {
         satisfactionScore: Int,
         doubtScore: Int,
         memo: String = "",
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        dayType: String = "Daily",
+        stateTags: String = ""
     ) {
         self.id = id
         self.achievementScore = achievementScore
@@ -31,5 +35,7 @@ final class CheckIn {
         self.doubtScore = doubtScore
         self.memo = memo
         self.createdAt = createdAt
+        self.dayType = dayType
+        self.stateTags = stateTags
     }
 }
