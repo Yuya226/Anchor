@@ -12,6 +12,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \DoubtLog.createdAt, order: .reverse) private var doubtLogs: [DoubtLog]
     @Query(sort: \ShelfItem.createdAt, order: .reverse) private var shelfItems: [ShelfItem]
+    @Query(sort: \ActivitySession.startedAt, order: .reverse) private var activitySessions: [ActivitySession]
 
     @State private var isShowingDoubtSheet = false
     @State private var doubtContent = ""
@@ -26,9 +27,11 @@ struct ContentView: View {
                         AnchorCard(title: "今の重点テーマ", value: "Anchor MVPを作る")
                         AnchorCard(title: "次の一手", value: "ホーム画面を形にする")
 
-                        HStack(spacing: 14) {
-                            AnchorCard(title: "今日の積み上げ", value: "0分")
-                            AnchorCard(title: "今日の迷い", value: "\(todayDoubtCount)回")
+                        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                            HStack(spacing: 14) {
+                                AnchorCard(title: "今日の積み上げ", value: workDurationText(now: timeline.date))
+                                AnchorCard(title: "今日の迷い", value: "\(todayDoubtCount)回")
+                            }
                         }
 
                         ShelfCard(
@@ -57,6 +60,10 @@ struct ContentView: View {
 
     private var todayDoubtCount: Int {
         doubtLogs.filter { Calendar.current.isDateInToday($0.createdAt) }.count
+    }
+
+    private var activeSession: ActivitySession? {
+        activitySessions.first { $0.endedAt == nil }
     }
 
     private var homeShelfItemTitles: [String] {
@@ -89,7 +96,9 @@ struct ContentView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            Button("作業開始") {}
+            Button(activeSession == nil ? "作業開始" : "作業停止") {
+                toggleWorkSession()
+            }
                 .buttonStyle(PrimaryAnchorButtonStyle())
 
             HStack(spacing: 12) {
@@ -143,6 +152,52 @@ struct ContentView: View {
         modelContext.insert(doubtLog)
         doubtContent = ""
         isShowingDoubtSheet = false
+    }
+
+    private func toggleWorkSession() {
+        if let activeSession {
+            finishWorkSession(activeSession)
+        } else {
+            startWorkSession()
+        }
+    }
+
+    private func startWorkSession() {
+        let session = ActivitySession(title: "Anchor MVPを作る")
+        modelContext.insert(session)
+    }
+
+    private func finishWorkSession(_ session: ActivitySession) {
+        let endedAt = Date()
+        session.endedAt = endedAt
+        session.durationSeconds = max(0, Int(endedAt.timeIntervalSince(session.startedAt)))
+    }
+
+    private func workDurationText(now: Date) -> String {
+        let seconds = todayWorkDurationSeconds(now: now)
+        let minutes = seconds / 60
+
+        if minutes < 60 {
+            return "\(minutes)分"
+        }
+
+        let hours = minutes / 60
+        let remainingMinutes = minutes % 60
+        return "\(hours)時間\(remainingMinutes)分"
+    }
+
+    private func todayWorkDurationSeconds(now: Date) -> Int {
+        activitySessions.reduce(0) { total, session in
+            guard Calendar.current.isDateInToday(session.startedAt) else {
+                return total
+            }
+
+            if let endedAt = session.endedAt {
+                return total + max(0, Int(endedAt.timeIntervalSince(session.startedAt)))
+            }
+
+            return total + max(0, Int(now.timeIntervalSince(session.startedAt)))
+        }
     }
 }
 
@@ -524,5 +579,5 @@ private struct SecondaryAnchorButtonStyle: ButtonStyle {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [DoubtLog.self, ShelfItem.self], inMemory: true)
+        .modelContainer(for: [DoubtLog.self, ShelfItem.self, ActivitySession.self], inMemory: true)
 }
