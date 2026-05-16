@@ -16,6 +16,9 @@ struct ContentView: View {
 
     @State private var isShowingDoubtSheet = false
     @State private var doubtContent = ""
+    @State private var feedbackSession: ActivitySession?
+    @State private var sessionResult = "できた"
+    @State private var actualActivity = ""
 
     var body: some View {
         NavigationStack {
@@ -55,7 +58,25 @@ struct ContentView: View {
                     onSave: saveDoubtLog
                 )
             }
+            .sheet(isPresented: isShowingSessionFeedback) {
+                SessionFeedbackSheet(
+                    result: $sessionResult,
+                    actualActivity: $actualActivity,
+                    onSave: saveSessionFeedback
+                )
+            }
         }
+    }
+
+    private var isShowingSessionFeedback: Binding<Bool> {
+        Binding(
+            get: { feedbackSession != nil },
+            set: { isShowing in
+                if !isShowing {
+                    clearSessionFeedback()
+                }
+            }
+        )
     }
 
     private var todayDoubtCount: Int {
@@ -171,6 +192,21 @@ struct ContentView: View {
         let endedAt = Date()
         session.endedAt = endedAt
         session.durationSeconds = max(0, Int(endedAt.timeIntervalSince(session.startedAt)))
+        feedbackSession = session
+    }
+
+    private func saveSessionFeedback() {
+        let trimmedActivity = actualActivity.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        feedbackSession?.result = sessionResult
+        feedbackSession?.actualActivity = trimmedActivity.isEmpty ? nil : trimmedActivity
+        clearSessionFeedback()
+    }
+
+    private func clearSessionFeedback() {
+        feedbackSession = nil
+        sessionResult = "できた"
+        actualActivity = ""
     }
 
     private func workDurationText(now: Date) -> String {
@@ -403,6 +439,87 @@ private struct EmptyShelfItemCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(red: 0.99, green: 0.98, blue: 0.95))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct SessionFeedbackSheet: View {
+    @Binding var result: String
+    @Binding var actualActivity: String
+
+    let onSave: () -> Void
+
+    private let resultOptions = [
+        "できた",
+        "少しできた",
+        "別のことをした",
+        "何もしなかった"
+    ]
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("作業をふり返る")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                Text("実際に起きたことを軽く残して、次に使える記録にします。")
+                    .font(.body)
+                    .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("本来のタスク")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+                    VStack(spacing: 10) {
+                        ForEach(resultOptions, id: \.self) { option in
+                            Button {
+                                result = option
+                            } label: {
+                                HStack {
+                                    Text(option)
+                                        .font(.body)
+                                        .fontWeight(.semibold)
+
+                                    Spacer()
+
+                                    if result == option {
+                                        Image(systemName: "checkmark")
+                                            .font(.body.weight(.bold))
+                                    }
+                                }
+                                .foregroundStyle(result == option ? .white : Color(red: 0.25, green: 0.38, blue: 0.35))
+                                .padding(14)
+                                .background(result == option ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.90, green: 0.91, blue: 0.87))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("実際にしたこと")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color(red: 0.45, green: 0.47, blue: 0.45))
+
+                    TextField("例: YouTube、散歩、別の勉強", text: $actualActivity)
+                        .textFieldStyle(.plain)
+                        .padding(14)
+                        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+
+                Spacer()
+
+                Button("保存", action: onSave)
+                    .buttonStyle(PrimaryAnchorButtonStyle())
+            }
+            .padding(20)
+            .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+        }
     }
 }
 
