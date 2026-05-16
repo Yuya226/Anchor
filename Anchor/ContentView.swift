@@ -56,6 +56,17 @@ struct ContentView: View {
             }
             .background(Color(red: 0.95, green: 0.94, blue: 0.91))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        DataManagementView()
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                    }
+                    .accessibilityLabel("データ管理")
+                }
+            }
             .sheet(isPresented: $isShowingDoubtSheet) {
                 DoubtLogSheet(
                     content: $doubtContent,
