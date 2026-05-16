@@ -29,9 +29,9 @@ struct ContentView: View {
             }
         case .home:
             HomeView()
-        case .history:
+        case .tasks:
             NavigationStack {
-                HistoryView()
+                TaskListView()
             }
         case .settings:
             NavigationStack {
@@ -45,7 +45,7 @@ private enum AnchorTab: CaseIterable {
     case log
     case shelf
     case home
-    case history
+    case tasks
     case settings
 
     var title: String {
@@ -56,8 +56,8 @@ private enum AnchorTab: CaseIterable {
             "棚上げ"
         case .home:
             "ホーム"
-        case .history:
-            "履歴"
+        case .tasks:
+            "タスク"
         case .settings:
             "設定"
         }
@@ -71,8 +71,8 @@ private enum AnchorTab: CaseIterable {
             "tray"
         case .home:
             "house.fill"
-        case .history:
-            "clock"
+        case .tasks:
+            "checklist"
         case .settings:
             "gearshape"
         }
@@ -176,6 +176,7 @@ private struct HomeView: View {
     @Query(sort: \DoubtLog.createdAt, order: .reverse) private var doubtLogs: [DoubtLog]
     @Query(sort: \ShelfItem.createdAt, order: .reverse) private var shelfItems: [ShelfItem]
     @Query(sort: \ActivitySession.startedAt, order: .reverse) private var activitySessions: [ActivitySession]
+    @Query(sort: \AnchorTask.createdAt, order: .reverse) private var tasks: [AnchorTask]
 
     @State private var isShowingDoubtSheet = false
     @State private var doubtContent = ""
@@ -195,8 +196,8 @@ private struct HomeView: View {
                     header
 
                     VStack(spacing: 14) {
-                        AnchorCard(title: "今の重点テーマ", value: "Anchor MVPを作る")
-                        AnchorCard(title: "次の一手", value: "ホーム画面を形にする")
+                        AnchorCard(title: "今の重点テーマ", value: activeThemeTitle)
+                        AnchorCard(title: "次の一手", value: activeTaskTitle)
 
                         TimelineView(.periodic(from: .now, by: 1)) { timeline in
                             HStack(spacing: 14) {
@@ -265,6 +266,18 @@ private struct HomeView: View {
         activitySessions.first { $0.endedAt == nil }
     }
 
+    private var activeTask: AnchorTask? {
+        tasks.first { $0.isActive && !$0.isCompleted }
+    }
+
+    private var activeTaskTitle: String {
+        activeTask?.title ?? "ホーム画面を形にする"
+    }
+
+    private var activeThemeTitle: String {
+        activeTask?.themeTitle ?? "Anchor MVPを作る"
+    }
+
     private var homeShelfItemTitles: [String] {
         let savedTitles = shelfItems.prefix(3).map(\.title)
 
@@ -306,7 +319,7 @@ private struct HomeView: View {
                 }
                     .buttonStyle(SecondaryAnchorButtonStyle())
 
-                Button("チェックイン") {
+                Button("日記") {
                     isShowingCheckInSheet = true
                 }
                     .buttonStyle(SecondaryAnchorButtonStyle())
@@ -342,7 +355,7 @@ private struct HomeView: View {
     }
 
     private func startWorkSession() {
-        let session = ActivitySession(title: "Anchor MVPを作る")
+        let session = ActivitySession(title: activeTaskTitle)
         modelContext.insert(session)
     }
 
@@ -444,7 +457,7 @@ private struct LogTabView: View {
                     NavigationLink {
                         HistoryView()
                     } label: {
-                        TabNavigationCard(title: "チェックイン履歴", subtitle: "チェックインと作業ログを見返す")
+                        TabNavigationCard(title: "これまでの日記", subtitle: "これまでの日記と作業ログを見返す")
                     }
                 }
                 .padding(.horizontal, 20)
@@ -564,7 +577,7 @@ private struct HistoryView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
 
-                Text("積み上げとチェックインを、あとで見返せる場所")
+                Text("積み上げと日記を、あとで見返せる場所")
                     .font(.body)
                     .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
 
@@ -683,7 +696,7 @@ private struct EmptyHistoryCard: View {
                 .font(.headline)
                 .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
 
-            Text("作業やチェックインを記録すると、ここで見返せます。")
+            Text("作業や日記を記録すると、ここで見返せます。")
                 .font(.body)
                 .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
         }
@@ -739,7 +752,9 @@ private struct TaskListView: View {
                 } else {
                     VStack(spacing: 12) {
                         ForEach(tasks) { task in
-                            TaskRow(task: task)
+                            TaskRow(task: task, onSetActive: {
+                                setActiveTask(task)
+                            })
                         }
                     }
                 }
@@ -776,8 +791,10 @@ private struct TaskListView: View {
             return
         }
 
+        let shouldActivate = !tasks.contains { $0.isActive && !$0.isCompleted }
         let task = AnchorTask(
             title: trimmedTitle,
+            isActive: shouldActivate,
             taskStyle: taskStyle,
             themeTitle: trimmedTheme.isEmpty ? nil : trimmedTheme,
             minimumAction: trimmedMinimum.isEmpty ? nil : trimmedMinimum
@@ -794,10 +811,17 @@ private struct TaskListView: View {
         minimumAction = ""
         taskStyle = "Hybrid"
     }
+
+    private func setActiveTask(_ selectedTask: AnchorTask) {
+        for task in tasks {
+            task.isActive = task.id == selectedTask.id
+        }
+    }
 }
 
 private struct TaskRow: View {
     let task: AnchorTask
+    let onSetActive: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -816,6 +840,18 @@ private struct TaskRow: View {
                     .padding(.vertical, 5)
                     .background(Color(red: 0.90, green: 0.91, blue: 0.87))
                     .clipShape(Capsule())
+            }
+
+            if task.isActive {
+                Text("今日のアンカー")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+            } else {
+                Button("アンカーにする", action: onSetActive)
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
             }
 
             if let themeTitle = task.themeTitle, !themeTitle.isEmpty {
@@ -1216,7 +1252,7 @@ private struct CheckInSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 18) {
-                Text("チェックイン")
+                Text("日記")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
