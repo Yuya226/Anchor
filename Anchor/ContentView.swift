@@ -12,31 +12,31 @@ struct ContentView: View {
     @State private var selectedTab: AnchorTab = .home
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            LogTabView()
-                .tag(AnchorTab.log)
+        selectedContent
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            CustomTabBar(selectedTab: $selectedTab)
+        }
+    }
 
+    @ViewBuilder
+    private var selectedContent: some View {
+        switch selectedTab {
+        case .log:
+            LogTabView()
+        case .shelf:
             NavigationStack {
                 ShelfItemListView()
             }
-            .tag(AnchorTab.shelf)
-
+        case .home:
             HomeView()
-                .tag(AnchorTab.home)
-
+        case .history:
             NavigationStack {
                 HistoryView()
             }
-            .tag(AnchorTab.history)
-
+        case .settings:
             NavigationStack {
                 DataManagementView()
             }
-            .tag(AnchorTab.settings)
-        }
-        .toolbar(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            AnchorTabBar(selectedTab: $selectedTab)
         }
     }
 }
@@ -79,35 +79,38 @@ private enum AnchorTab: CaseIterable {
     }
 }
 
-private struct AnchorTabBar: View {
+private struct CustomTabBar: View {
     @Binding var selectedTab: AnchorTab
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            ForEach(AnchorTab.allCases, id: \.self) { tab in
-                Button {
-                    selectedTab = tab
-                } label: {
-                    if tab == .home {
-                        HomeTabItem(isSelected: selectedTab == tab)
-                    } else {
-                        StandardTabItem(tab: tab, isSelected: selectedTab == tab)
+        ZStack {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(Color(red: 0.98, green: 0.97, blue: 0.94))
+                .shadow(color: Color.black.opacity(0.10), radius: 18, y: 8)
+
+            HStack(alignment: .center, spacing: 8) {
+                ForEach(AnchorTab.allCases, id: \.self) { tab in
+                    Button {
+                        selectedTab = tab
+                    } label: {
+                        if tab == .home {
+                            HomeTabItem(isSelected: selectedTab == tab)
+                        } else {
+                            StandardTabItem(tab: tab, isSelected: selectedTab == tab)
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel(tab.title)
                 }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
-                .accessibilityLabel(tab.title)
             }
+            .padding(.horizontal, 10)
         }
+        .frame(height: 76)
         .padding(.horizontal, 14)
-        .padding(.top, 10)
+        .padding(.top, 6)
         .padding(.bottom, 8)
-        .background(Color(red: 0.97, green: 0.96, blue: 0.93))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color(red: 0.86, green: 0.85, blue: 0.80))
-                .frame(height: 1)
-        }
+        .background(Color(red: 0.95, green: 0.94, blue: 0.91))
     }
 }
 
@@ -124,8 +127,11 @@ private struct StandardTabItem: View {
                 .font(.caption2)
                 .fontWeight(.semibold)
         }
-        .foregroundStyle(isSelected ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.52, green: 0.54, blue: 0.51))
-        .frame(height: 48)
+        .foregroundStyle(isSelected ? Color(red: 0.98, green: 0.97, blue: 0.94) : Color(red: 0.48, green: 0.51, blue: 0.48))
+        .frame(maxWidth: .infinity)
+        .frame(height: 54)
+        .background(isSelected ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -136,22 +142,27 @@ private struct HomeTabItem: View {
         VStack(spacing: 4) {
             ZStack {
                 Circle()
-                    .fill(isSelected ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.74, green: 0.77, blue: 0.70))
-                    .frame(width: 58, height: 58)
+                    .fill(isSelected ? Color(red: 0.21, green: 0.34, blue: 0.31) : Color(red: 0.68, green: 0.72, blue: 0.66))
+                    .frame(width: 62, height: 62)
 
                 Image(systemName: "house.fill")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white)
             }
-            .shadow(color: Color.black.opacity(0.12), radius: 8, y: 4)
+            .overlay {
+                Circle()
+                    .stroke(Color(red: 0.98, green: 0.97, blue: 0.94), lineWidth: 4)
+            }
+            .shadow(color: Color.black.opacity(isSelected ? 0.18 : 0.10), radius: 10, y: 5)
 
             Text("ホーム")
                 .font(.caption2)
                 .fontWeight(.bold)
-                .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+                .foregroundStyle(isSelected ? Color(red: 0.21, green: 0.34, blue: 0.31) : Color(red: 0.48, green: 0.51, blue: 0.48))
         }
-        .offset(y: -18)
-        .frame(height: 66)
+        .offset(y: -16)
+        .frame(maxWidth: .infinity)
+        .frame(height: 70)
     }
 }
 
