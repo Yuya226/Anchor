@@ -9,6 +9,153 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    @State private var selectedTab: AnchorTab = .home
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            LogTabView()
+                .tag(AnchorTab.log)
+
+            NavigationStack {
+                ShelfItemListView()
+            }
+            .tag(AnchorTab.shelf)
+
+            HomeView()
+                .tag(AnchorTab.home)
+
+            NavigationStack {
+                HistoryView()
+            }
+            .tag(AnchorTab.history)
+
+            NavigationStack {
+                DataManagementView()
+            }
+            .tag(AnchorTab.settings)
+        }
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            AnchorTabBar(selectedTab: $selectedTab)
+        }
+    }
+}
+
+private enum AnchorTab: CaseIterable {
+    case log
+    case shelf
+    case home
+    case history
+    case settings
+
+    var title: String {
+        switch self {
+        case .log:
+            "ログ"
+        case .shelf:
+            "棚上げ"
+        case .home:
+            "ホーム"
+        case .history:
+            "履歴"
+        case .settings:
+            "設定"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .log:
+            "list.bullet.rectangle"
+        case .shelf:
+            "tray"
+        case .home:
+            "house.fill"
+        case .history:
+            "clock"
+        case .settings:
+            "gearshape"
+        }
+    }
+}
+
+private struct AnchorTabBar: View {
+    @Binding var selectedTab: AnchorTab
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            ForEach(AnchorTab.allCases, id: \.self) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    if tab == .home {
+                        HomeTabItem(isSelected: selectedTab == tab)
+                    } else {
+                        StandardTabItem(tab: tab, isSelected: selectedTab == tab)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel(tab.title)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(Color(red: 0.97, green: 0.96, blue: 0.93))
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color(red: 0.86, green: 0.85, blue: 0.80))
+                .frame(height: 1)
+        }
+    }
+}
+
+private struct StandardTabItem: View {
+    let tab: AnchorTab
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: tab.systemImage)
+                .font(.system(size: 18, weight: .semibold))
+
+            Text(tab.title)
+                .font(.caption2)
+                .fontWeight(.semibold)
+        }
+        .foregroundStyle(isSelected ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.52, green: 0.54, blue: 0.51))
+        .frame(height: 48)
+    }
+}
+
+private struct HomeTabItem: View {
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Circle()
+                    .fill(isSelected ? Color(red: 0.25, green: 0.38, blue: 0.35) : Color(red: 0.74, green: 0.77, blue: 0.70))
+                    .frame(width: 58, height: 58)
+
+                Image(systemName: "house.fill")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .shadow(color: Color.black.opacity(0.12), radius: 8, y: 4)
+
+            Text("ホーム")
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
+        }
+        .offset(y: -18)
+        .frame(height: 66)
+    }
+}
+
+private struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \DoubtLog.createdAt, order: .reverse) private var doubtLogs: [DoubtLog]
     @Query(sort: \ShelfItem.createdAt, order: .reverse) private var shelfItems: [ShelfItem]
@@ -56,17 +203,6 @@ struct ContentView: View {
             }
             .background(Color(red: 0.95, green: 0.94, blue: 0.91))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        DataManagementView()
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
-                    }
-                    .accessibilityLabel("データ管理")
-                }
-            }
             .sheet(isPresented: $isShowingDoubtSheet) {
                 DoubtLogSheet(
                     content: $doubtContent,
@@ -158,57 +294,6 @@ struct ContentView: View {
                     isShowingCheckInSheet = true
                 }
                     .buttonStyle(SecondaryAnchorButtonStyle())
-            }
-
-            VStack(spacing: 8) {
-                HStack(spacing: 12) {
-                    NavigationLink {
-                        TaskListView()
-                    } label: {
-                        Text("タスク")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                    }
-
-                    NavigationLink {
-                        DoubtLogListView()
-                    } label: {
-                        Text("迷いログ")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                    }
-
-                }
-
-                HStack(spacing: 12) {
-                    NavigationLink {
-                        ShelfItemListView()
-                    } label: {
-                        Text("棚上げ")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                    }
-
-                    NavigationLink {
-                        HistoryView()
-                    } label: {
-                        Text("履歴")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color(red: 0.25, green: 0.38, blue: 0.35))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                    }
-                }
             }
         }
         .padding(.top, 8)
@@ -317,6 +402,63 @@ struct ContentView: View {
 
             return total + max(0, Int(now.timeIntervalSince(session.startedAt)))
         }
+    }
+}
+
+private struct LogTabView: View {
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("ログ")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+                    Text("迷いとチェックインを見返す場所")
+                        .font(.body)
+                        .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+
+                    NavigationLink {
+                        DoubtLogListView()
+                    } label: {
+                        TabNavigationCard(title: "迷いログ", subtitle: "預けた迷いを見返す")
+                    }
+
+                    NavigationLink {
+                        HistoryView()
+                    } label: {
+                        TabNavigationCard(title: "チェックイン履歴", subtitle: "チェックインと作業ログを見返す")
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 32)
+            }
+            .background(Color(red: 0.95, green: 0.94, blue: 0.91))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
+private struct TabNavigationCard: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(Color(red: 0.16, green: 0.18, blue: 0.18))
+
+            Text(subtitle)
+                .font(.body)
+                .foregroundStyle(Color(red: 0.38, green: 0.40, blue: 0.39))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(red: 0.99, green: 0.98, blue: 0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
